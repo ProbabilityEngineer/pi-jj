@@ -7,7 +7,7 @@ out="$repo/AGENTS.md"
 
 repo_specific=""
 if [[ -f "$out" ]]; then
-  repo_specific="$(awk '/<!-- BEGIN REPO SPECIFIC -->/{in_block=1; next} /<!-- END REPO SPECIFIC -->/{in_block=0; next} in_block {print}' "$out")"
+	repo_specific="$(awk '/<!-- BEGIN REPO SPECIFIC -->/{in_block=1; next} /<!-- END REPO SPECIFIC -->/{in_block=0; next} in_block {print}' "$out")"
 fi
 
 cat >"$out" <<'EOF'
@@ -30,9 +30,9 @@ Avoid hangs from aliased prompts. Use force/non-interactive flags for file and r
 EOF
 
 if [[ -n "$repo_specific" ]]; then
-  printf '\n<!-- END GENERATED AGENT GUIDANCE -->\n\n<!-- BEGIN REPO SPECIFIC -->\n%s\n<!-- END REPO SPECIFIC -->\n' "$repo_specific" >>"$out"
+	printf '\n<!-- END GENERATED AGENT GUIDANCE -->\n\n<!-- BEGIN REPO SPECIFIC -->\n%s\n<!-- END REPO SPECIFIC -->\n' "$repo_specific" >>"$out"
 else
-  cat >>"$out" <<'EOF'
+	cat >>"$out" <<'EOF'
 
 <!-- END GENERATED AGENT GUIDANCE -->
 
