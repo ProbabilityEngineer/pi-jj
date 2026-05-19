@@ -1,0 +1,14 @@
+{
+  "name": "pi-jj",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Pi extension that shows JJ status when jj is installed, and prompts to install it when it is not.",
+  "type": "module",
+  "keywords": ["pi-package", "pi-extension", "jujutsu", "jj"],
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.75.3"
+  },
+  "pi": {
+    "extensions": ["index.ts"]
+  }
+}
