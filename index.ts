@@ -5,117 +5,162 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const ensureAgentsScript = join(here, "scripts", "ensure-agents.sh");
 const ensureJjScript = join(here, "scripts", "ensure-jj.sh");
 const disableMarker = ".pi-jj-status-off";
 
 function run(cmd: string, args: string[], cwd: string): string | null {
-  try {
-    return execFileSync(cmd, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 }).trim();
-  } catch {
-    return null;
-  }
+	try {
+		return execFileSync(cmd, args, {
+			cwd,
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+			timeout: 5000,
+		}).trim();
+	} catch {
+		return null;
+	}
 }
 
 function runJj(args: string[], cwd: string): string | null {
-  return run("jj", args, cwd);
+	return run("jj", args, cwd);
 }
 
-function formatChangeSummary(added: number, modified: number, removed: number): string {
-  const parts: string[] = [];
-  if (added) parts.push(`+${added}`);
-  if (modified) parts.push(`~${modified}`);
-  if (removed) parts.push(`-${removed}`);
-  return parts.length > 0 ? parts.join("") : "clean";
+function formatChangeSummary(
+	added: number,
+	modified: number,
+	removed: number,
+): string {
+	const parts: string[] = [];
+	if (added) parts.push(`+${added}`);
+	if (modified) parts.push(`~${modified}`);
+	if (removed) parts.push(`-${removed}`);
+	return parts.length > 0 ? parts.join("") : "clean";
 }
 
-function buildJjStatus(cwd: string): { text: string; dirty: boolean } | undefined {
-  const bookmark = runJj(["log", "-r", "@", "--no-graph", "-T", "bookmarks"], cwd) ?? "";
-  const rawDescription = runJj(["log", "-r", "@", "--no-graph", "-T", "description"], cwd);
-  const description = rawDescription && rawDescription.trim() ? rawDescription.trim().split(/\r?\n/)[0] : "no descrp";
-  const status = runJj(["status", "--no-pager"], cwd) ?? "";
+function hasJjRepo(cwd: string): boolean {
+	return runJj(["root"], cwd) !== null;
+}
 
-  let added = 0;
-  let modified = 0;
-  let removed = 0;
-  for (const line of status.split(/\r?\n/)) {
-    if (line.startsWith("A ")) added += 1;
-    else if (line.startsWith("M ")) modified += 1;
-    else if (line.startsWith("R ")) removed += 1;
-  }
+function buildJjStatus(
+	cwd: string,
+): { text: string; dirty: boolean } | undefined {
+	const bookmark =
+		runJj(["log", "-r", "@", "--no-graph", "-T", "bookmarks"], cwd) ?? "";
+	const rawDescription = runJj(
+		["log", "-r", "@", "--no-graph", "-T", "description"],
+		cwd,
+	);
+	const description =
+		rawDescription && rawDescription.trim()
+			? rawDescription.trim().split(/\r?\n/)[0]
+			: "no descrp";
+	const status = runJj(["status", "--no-pager"], cwd) ?? "";
 
-  return {
-    text: `${bookmark || "no bkmrk"}·${description}·${formatChangeSummary(added, modified, removed)}`,
-    dirty: added + modified + removed > 0,
-  };
+	let added = 0;
+	let modified = 0;
+	let removed = 0;
+	for (const line of status.split(/\r?\n/)) {
+		if (line.startsWith("A ")) added += 1;
+		else if (line.startsWith("M ")) modified += 1;
+		else if (line.startsWith("R ")) removed += 1;
+	}
+
+	return {
+		text: `${bookmark || "no bkmrk"}·${description}·${formatChangeSummary(added, modified, removed)}`,
+		dirty: added + modified + removed > 0,
+	};
 }
 
 function statusDisabled(cwd: string): boolean {
-  return existsSync(join(cwd, disableMarker));
+	return existsSync(join(cwd, disableMarker));
 }
 
 function toggleStatus(cwd: string): string {
-  const marker = join(cwd, disableMarker);
-  if (existsSync(marker)) {
-    unlinkSync(marker);
-    return "jj statusline enabled";
-  }
-  writeFileSync(marker, "disabled\n");
-  return "jj statusline disabled";
+	const marker = join(cwd, disableMarker);
+	if (existsSync(marker)) {
+		unlinkSync(marker);
+		return "jj statusline enabled";
+	}
+	writeFileSync(marker, "disabled\n");
+	return "jj statusline disabled";
 }
 
 function initJj(cwd: string): string {
-  const hasJj = run("jj", ["--version"], cwd) !== null;
-  if (!hasJj) return "jj is not installed";
-  if (existsSync(join(cwd, ".jj"))) return "jj already initialized";
-  const result = run("bash", [ensureJjScript, cwd], cwd);
-  return result ?? "jj setup failed";
+	const hasJj = run("jj", ["--version"], cwd) !== null;
+	if (!hasJj) return "jj is not installed";
+	if (existsSync(join(cwd, ".jj"))) return "jj already initialized";
+	const result = run("bash", [ensureJjScript, cwd], cwd);
+	return result ?? "jj setup failed";
 }
 
 export default function repoStatus(pi: ExtensionAPI) {
-  let lastRendered: string | undefined;
+	let lastRendered: string | undefined;
 
-  const refresh = (ctx: { cwd: string; hasUI: boolean; ui: { setStatus: (key: string, text: string | undefined) => void; theme: { fg: (color: string, text: string) => string } } }) => {
-    if (!ctx.hasUI) return;
-    if (statusDisabled(ctx.cwd)) {
-      if (lastRendered !== undefined) {
-        lastRendered = undefined;
-        ctx.ui.setStatus("jj-status", undefined);
-      }
-      return;
-    }
-    const next = runJj(["--version"], ctx.cwd) ? buildJjStatus(ctx.cwd) : { text: "jj install needed", dirty: false };
-    const rendered = next ? (next.dirty ? ctx.ui.theme.fg("warning", next.text) : `\x1b[38;5;71m${next.text}\x1b[39m`) : undefined;
-    if (rendered === lastRendered) return;
-    lastRendered = rendered;
-    ctx.ui.setStatus("jj-status", rendered);
-  };
+	const refresh = (ctx: {
+		cwd: string;
+		hasUI: boolean;
+		ui: {
+			setStatus: (key: string, text: string | undefined) => void;
+			theme: { fg: (color: string, text: string) => string };
+		};
+	}) => {
+		if (!ctx.hasUI) return;
+		if (statusDisabled(ctx.cwd)) {
+			if (lastRendered !== undefined) {
+				lastRendered = undefined;
+				ctx.ui.setStatus("jj-status", undefined);
+			}
+			return;
+		}
+		if (!hasJjRepo(ctx.cwd)) {
+			if (lastRendered !== undefined) {
+				lastRendered = undefined;
+				ctx.ui.setStatus("jj-status", undefined);
+			}
+			return;
+		}
 
-  pi.registerCommand("jj-init", {
-    description: "Install/setup jj for the current repo",
-    handler: async (_args, ctx) => {
-      const result = initJj(ctx.cwd);
-      ctx.ui.notify(result, result.includes("failed") || result.includes("not installed") ? "warning" : "info");
-      refresh(ctx);
-    },
-  });
+		const next = buildJjStatus(ctx.cwd);
+		const rendered = next
+			? next.dirty
+				? ctx.ui.theme.fg("warning", next.text)
+				: `\x1b[38;5;71m${next.text}\x1b[39m`
+			: undefined;
+		if (rendered === lastRendered) return;
+		lastRendered = rendered;
+		ctx.ui.setStatus("jj-status", rendered);
+	};
 
-  pi.registerCommand("jj-status", {
-    description: "Toggle the JJ statusline on/off",
-    handler: async (_args, ctx) => {
-      const result = toggleStatus(ctx.cwd);
-      ctx.ui.notify(result, "info");
-      refresh(ctx);
-    },
-  });
+	pi.registerCommand("jj-init", {
+		description: "Install/setup jj for the current repo",
+		handler: async (_args, ctx) => {
+			const result = initJj(ctx.cwd);
+			ctx.ui.notify(
+				result,
+				result.includes("failed") || result.includes("not installed")
+					? "warning"
+					: "info",
+			);
+			refresh(ctx);
+		},
+	});
 
-  pi.on("session_start", async (_event, ctx) => refresh(ctx));
-  pi.on("turn_end", async (_event, ctx) => refresh(ctx));
-  pi.on("tool_result", async (event, ctx) => {
-    if (["edit", "write", "bash"].includes(event.toolName)) refresh(ctx);
-  });
-  pi.on("session_shutdown", async (_event, ctx) => {
-    if (!ctx.hasUI) return;
-    ctx.ui.setStatus("jj-status", undefined);
-  });
+	pi.registerCommand("jj-status", {
+		description: "Toggle the JJ statusline on/off",
+		handler: async (_args, ctx) => {
+			const result = toggleStatus(ctx.cwd);
+			ctx.ui.notify(result, "info");
+			refresh(ctx);
+		},
+	});
+
+	pi.on("session_start", async (_event, ctx) => refresh(ctx));
+	pi.on("turn_end", async (_event, ctx) => refresh(ctx));
+	pi.on("tool_result", async (event, ctx) => {
+		if (["edit", "write", "bash"].includes(event.toolName)) refresh(ctx);
+	});
+	pi.on("session_shutdown", async (_event, ctx) => {
+		if (!ctx.hasUI) return;
+		ctx.ui.setStatus("jj-status", undefined);
+	});
 }
