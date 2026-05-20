@@ -1,0 +1,1 @@
+User prefers a lightweight JJ/Git workflow: use jj locally, and use git mainly for occasional push/fetch to GitHub. They want changes kept small and non-invasive. <!-- created=2026-05-20, last=2026-05-20 -->

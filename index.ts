@@ -92,6 +92,20 @@ function initJj(cwd: string): string {
 	if (existsSync(join(cwd, ".jj"))) return "jj already initialized";
 	const result = run("bash", [ensureJjScript, cwd], cwd);
 	return result ?? "jj setup failed";
+
+function joinArgs(args: unknown): string {
+	if (typeof args === "string") return args.trim();
+	if (Array.isArray(args)) return args.map(String).join(" ").trim();
+	return "";
+}
+
+function summarizeOutput(output: string | null, maxLines = 12): string {
+	if (!output) return "";
+	return output
+		.split(/\r?\n/)
+		.filter(Boolean)
+		.slice(0, maxLines)
+		.join("\n");
 }
 
 export default function repoStatus(pi: ExtensionAPI) {
@@ -152,6 +166,40 @@ export default function repoStatus(pi: ExtensionAPI) {
 			const result = toggleStatus(ctx.cwd);
 			ctx.ui.notify(result, "info");
 			refresh(ctx);
+		},
+	});
+
+	pi.registerCommand("jj-new", {
+		description: "Create a new JJ change",
+		handler: async (args, ctx) => {
+			const message = joinArgs(args);
+			const result = message
+				? runJj(["new", "--message", message], ctx.cwd)
+				: runJj(["new", "--no-edit"], ctx.cwd);
+			ctx.ui.notify(result ?? "jj new failed", result ? "info" : "warning");
+			refresh(ctx);
+		},
+	});
+
+	pi.registerCommand("jj-describe", {
+		description: "Set the current JJ change description",
+		handler: async (args, ctx) => {
+			const message = joinArgs(args);
+			if (!message) {
+				ctx.ui.notify("Usage: /jj describe <message>", "warning");
+				return;
+			}
+			const result = runJj(["describe", "--message", message], ctx.cwd);
+			ctx.ui.notify(result ?? "jj describe failed", result ? "info" : "warning");
+			refresh(ctx);
+		},
+	});
+
+	pi.registerCommand("jj-diff", {
+		description: "Show a JJ diff summary",
+		handler: async (_args, ctx) => {
+			const result = runJj(["diff", "--git", "--stat"], ctx.cwd);
+			ctx.ui.notify(summarizeOutput(result) || "jj diff failed", result ? "info" : "warning");
 		},
 	});
 

@@ -10,6 +10,9 @@ https://github.com/jj-vcs/jj
 - Shows an install-needed message when `jj` is missing.
 - Provides `/jj-init` to initialize JJ in the current repo.
 - Provides `/jj-status` to toggle the statusline on/off.
+- Provides `/jj-new` to create a new JJ change.
+- Provides `/jj-describe` to update the current change description.
+- Provides `/jj-diff` to show a short diff summary.
 - Works with colocated jj + git repos: use jj locally, and use git push/fetch for remote sync.
 - Avoids prompt injection and other dynamic context.
 - Keeps the package lightweight and non-invasive.
