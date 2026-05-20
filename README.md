@@ -1,6 +1,7 @@
 # pi-jj-vcs
 
-Pi extension for agent-friendly Jujutsu (jj) VCS setup and status.
+Pi extension for agent-friendly Jujutsu (jj) version control system setup and status.
+https://github.com/earendil-works/pi
 https://github.com/jj-vcs/jj
 
 ## What it does
