@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ensureJjScript = join(here, "scripts", "ensure-jj.sh");
-const disableMarker = ".pi-jj-status-off";
+const disableMarker = ".pi-jujutsu-status-off";
 
 function run(cmd: string, args: string[], cwd: string): string | null {
 	try {
