@@ -1,10 +1,11 @@
 # pi-jujutsu-vcs
 
-Pi extension for JJ setup and status.
+Pi extension for agent-frendly Jujutsu VCS setup and status.
+https://github.com/jj-vcs/jj
 
 ## What it does
 
-- Shows JJ status when `jj` is installed.
+- Shows status of your Jujutsu repo when `jj` is installed.
 - Shows an install-needed message when `jj` is missing.
 - Provides `/jj-init` to initialize JJ in the current repo.
 - Provides `/jj-status` to toggle the statusline on/off.
