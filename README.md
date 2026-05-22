@@ -8,8 +8,9 @@ https://github.com/jj-vcs/jj
 
 - Shows status of your Jujutsu repo when `jj` is installed, prioritizing the current working-copy change and the previous parked safe change after `jj new`.
 - Shows an install-needed message when `jj` is missing.
-- Provides `/jj-init` to initialize JJ in the current repo.
+- Provides `/jj-init` to initialize JJ in the current repo and install/refresh JJ guidance in `AGENTS.md`.
 - Provides `/jj-status` to toggle the statusline on/off.
+- Provides `/jj-agents` to install or refresh the managed JJ guidance block in `AGENTS.md`.
 - Provides `/jj-new` to create a new JJ change.
 - Provides `/jj-describe` to update the current change description.
 - Provides `/jj-diff` to show a short diff summary.

@@ -1,12 +1,24 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { execFileSync } from "node:child_process";
-import { existsSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ensureJjScript = join(here, "scripts", "ensure-jj.sh");
 const disableMarker = ".pi-jujutsu-status-off";
+const agentsJjBlockStart = "<!-- pi-jj-vcs:jjtips:start -->";
+const agentsJjBlockEnd = "<!-- pi-jj-vcs:jjtips:end -->";
+const agentsJjGuidance = `${agentsJjBlockStart}
+## Jujutsu Version Control
+This repo uses JJ with colocated Git. Use JJ for local work: \`jj status\`, \`jj diff\`, \`jj log\`, \`jj describe -m "message"\`, \`jj new\`, \`jj op log\`, and \`jj undo\`.
+
+Use Git only for remote, status, fetch, and push operations unless explicitly instructed. Avoid staged-index workflows: do not use \`git add\`, \`git commit\`, \`git diff --cached\`, or \`git pull --rebase\`. Do not run \`jj git push\` unless explicitly instructed.
+
+After completing any coherent change, run \`jj describe -m "message"\` and then \`jj new\` to park the described change and start with a clean working-copy commit. Until \`jj new\` is run, later edits continue amending the same JJ working-copy commit and \`jj describe\` replaces that commit's description.
+
+For GitHub/off-machine backup, keep a JJ bookmark matching the intended Git branch name. Prefer \`/jj-bookmark <branch> [rev]\` for intentional bookmark alignment and \`/jj-backup [branch]\` for backup. \`/jj-backup\` requires a clean JJ working copy, moves/creates the branch bookmark at the parked change (\`@-\`), attaches Git HEAD to that branch, and runs \`git push origin <branch>\`. Do not use it to push unfinished dirty \`@\` work.
+${agentsJjBlockEnd}`;
 
 type ChangeCounts = { added: number; modified: number; removed: number };
 type RevInfo = { changeId: string; commitId: string; description: string; bookmarks: string[] };
@@ -153,6 +165,28 @@ function initJj(cwd: string): string {
 	return result ?? "jj setup failed";
 }
 
+function ensureAgentsGuidance(cwd: string): string {
+	const path = join(cwd, "AGENTS.md");
+	const existing = existsSync(path) ? readFileSync(path, "utf8") : "# Agent Instructions\n";
+	let next: string;
+	if (existing.includes(agentsJjBlockStart) && existing.includes(agentsJjBlockEnd)) {
+		next = existing.replace(
+			new RegExp(`${agentsJjBlockStart}[\\s\\S]*?${agentsJjBlockEnd}`),
+			agentsJjGuidance,
+		);
+	} else if (existing.includes("## Jujutsu Version Control")) {
+		next = existing.replace(/## Jujutsu Version Control[\s\S]*?(?=\n## |\n<!-- END AGENT GUIDANCE -->|$)/, agentsJjGuidance);
+	} else {
+		const suffix = existing.endsWith("\n") ? "" : "\n";
+		next = `${existing}${suffix}\n${agentsJjGuidance}\n`;
+	}
+	if (next !== existing) {
+		writeFileSync(path, next);
+		return "AGENTS.md JJ guidance updated";
+	}
+	return "AGENTS.md JJ guidance already current";
+}
+
 function joinArgs(args: unknown): string {
 	if (typeof args === "string") return args.trim();
 	if (Array.isArray(args)) return args.map(String).join(" ").trim();
@@ -218,7 +252,19 @@ export default function repoStatus(pi: ExtensionAPI) {
 		description: "Install/setup jj for the current repo",
 		handler: async (_args, ctx) => {
 			const result = initJj(ctx.cwd);
-			ctx.ui.notify(result, result.includes("failed") || result.includes("not installed") ? "warning" : "info");
+			const guidanceResult = result.includes("not installed") || result.includes("failed")
+				? ""
+				: `\n${ensureAgentsGuidance(ctx.cwd)}`;
+			ctx.ui.notify(`${result}${guidanceResult}`, result.includes("failed") || result.includes("not installed") ? "warning" : "info");
+			refresh(ctx);
+		},
+	});
+
+	pi.registerCommand("jj-agents", {
+		description: "Install or refresh the AGENTS.md JJ guidance block",
+		handler: async (_args, ctx) => {
+			const result = ensureAgentsGuidance(ctx.cwd);
+			ctx.ui.notify(result, "info");
 			refresh(ctx);
 		},
 	});
