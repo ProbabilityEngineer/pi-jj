@@ -131,14 +131,14 @@ function buildJjStatus(
 	const warningText = bookmarkWarning ? `bkmrk≠${branch}` : preexistingDirty ? "preexisting dirty" : "";
 
 	const parkedText = parked
-		? `@- ${parked.changeId}${parkedBookmark ? ` ${parkedBookmark}` : ""} \"${parked.description}\"`
+		? `@- ${parked.changeId} · ${parkedBookmark || "no bkmrk"} · \"${parked.description}\"`
 		: "@- none";
 	const currentText = dirty || current.description !== "no desc" || currentBookmark
-		? `@${current.changeId} ${currentBookmark || "no bkmrk"} \"${current.description}\"`
-		: `@${current.changeId}`;
+		? `@ ${current.changeId} · ${currentBookmark || "no bkmrk"} · \"${current.description}\"`
+		: `@ ${current.changeId}`;
 
 	return {
-		text: `${currentText}·${statusText}·${parkedText}${warningText ? `·${warningText}` : ""}`,
+		text: `${currentText} · ${statusText} · ${parkedText}${warningText ? ` · ${warningText}` : ""}`,
 		dirty,
 		warning: bookmarkWarning || preexistingDirty,
 	};
