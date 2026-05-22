@@ -6,15 +6,17 @@ https://github.com/jj-vcs/jj
 
 ## What it does
 
-- Shows status of your Jujutsu repo when `jj` is installed, including current change ID, commit ID, description, dirty/clean counts, and bookmark position.
+- Shows status of your Jujutsu repo when `jj` is installed, prioritizing the current working-copy change and the previous parked safe change after `jj new`.
 - Shows an install-needed message when `jj` is missing.
 - Provides `/jj-init` to initialize JJ in the current repo.
 - Provides `/jj-status` to toggle the statusline on/off.
 - Provides `/jj-new` to create a new JJ change.
 - Provides `/jj-describe` to update the current change description.
 - Provides `/jj-diff` to show a short diff summary.
+- Provides `/jj-bookmark <branch> [rev]` to create or move a JJ bookmark after confirmation. The default rev is `@-`.
+- Provides `/jj-backup [branch]` to require a clean JJ working copy, align the branch bookmark to the parked change, and run `git push origin <branch>` after confirmation.
 - Works with colocated jj + git repos: use jj locally, and use git push/fetch for remote sync.
-- Warns when a described dirty working-copy change probably needs `jj new`, and when the discovered Git branch does not match the current or parent JJ bookmark.
+- Warns when a described dirty working-copy change probably needs `jj new`, and when the discovered Git branch/backup branch does not match the current or parked JJ bookmark.
 - Avoids prompt injection and other dynamic context.
 - Keeps the package lightweight and non-invasive.
 
@@ -28,6 +30,8 @@ pi install -l github.com/ProbabilityEngineer/pi-jj-vcs
 
 - In Pi, run `/jj-init` in a repo to set up JJ.
 - Run `/jj-status` to hide/show the JJ statusline.
+- Run `/jj-bookmark main` after `jj new` to point `main` at the parked change.
+- Run `/jj-backup main` to confirm bookmark alignment and push `main` for off-machine backup.
 
 ## Workflow
 
