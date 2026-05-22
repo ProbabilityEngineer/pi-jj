@@ -178,12 +178,11 @@ function buildJjStatus(
 			: "";
 
 	const parkedText = parked
-		? `@- ${parked.changeId} · ${parkedBookmark || "no bkmrk"} · "${parked.description}"`
+		? `@- ${parkedBookmark || "no bkmrk"} · ${parked.description !== "no desc" ? `"${parked.description}"` : "no desc"}`
 		: "@- none";
-	const currentText =
-		dirty || current.description !== "no desc" || currentBookmark
-			? `@ ${current.changeId} · ${currentBookmark || "no bkmrk"} · "${current.description}"`
-			: `@ ${current.changeId}`;
+	const currentText = dirty
+		? `@ ${currentBookmark || "no bkmrk"} · ${current.description !== "no desc" ? `"${current.description}"` : "no desc"}`
+		: `@ ${currentBookmark || "no bkmrk"} · clean`;
 
 	return {
 		text: `${parkedText} · ${currentText} · ${statusText}${warningText ? ` · ${warningText}` : ""}`,
