@@ -112,7 +112,7 @@ function alignedRemoteBookmarksByLocal(
 		const remoteMatch = line.match(/^\s+@([^:]+):\s+\S+\s+(\S+)/);
 		if (!remoteMatch || !localBookmark) continue;
 		const [, remote, remoteCommitId] = remoteMatch;
-		if (remote === "git" || remoteCommitId !== commitId) continue;
+		if (remote === "git" || !commitId.startsWith(remoteCommitId)) continue;
 		const names = byLocal.get(localBookmark) ?? [];
 		names.push(`${localBookmark}@${remote}`);
 		byLocal.set(localBookmark, names);
@@ -220,7 +220,7 @@ function buildJjStatus(
 		: "@- none";
 	const currentText = dirty
 		? `@ ${currentBookmark || "no bkmrk"} · ${current.description !== "no desc" ? `"${current.description}"` : "no desc"}`
-		: `@ ${currentBookmark || "no bkmrk"} · clean`;
+		: `@ ${currentBookmark || "no bkmrk"}`;
 
 	return {
 		text: `${parkedText} · ${currentText} · ${statusText}${warningText ? ` · ${warningText}` : ""}`,
