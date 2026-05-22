@@ -32,12 +32,16 @@ pi install -l github.com/ProbabilityEngineer/pi-jj-vcs
 
 - In Pi, run `/jj-init` in a repo to set up JJ.
 - Run `/jj-status` to hide/show the JJ status widget.
-- Run `/jj-bookmark main` after `jj new` to point `main` at the parked change.
-- Run `/jj-backup main` to confirm bookmark alignment, attach Git HEAD to `main`, and push `main` for off-machine backup.
+- After finishing work, run `/jj-describe <message>` and `/jj-new` so `@` is an empty working-copy change and `@-` is the completed change.
+- Run `/jj-bookmark main` only when you intentionally want to point `main` at a specific revision; the default revision is `@-`.
+- Run `/jj-backup main` to confirm bookmark alignment to `@-`, attach Git HEAD to `main`, and push `main` for off-machine backup.
+- Desired final shape after backup: `@` is clean/empty, `@-` is the completed change, and `@-` is labeled `main main@origin`.
 
 ## Workflow
 
 - Prefer `jj` for local edits, status, and history operations.
+- Avoid Git staged-index workflows (`git add`, `git commit`, `git diff --cached`) unless explicitly needed.
 - Allow `git fetch` and `git push` for colocated remote sync.
+- Before pushing, completed work should usually be at `@-`, with the target bookmark moved to `@-`.
 - Avoid dynamic prompt injection; keep guidance static and cache-friendly.
 - `scripts/ensure-jj.sh /path/to/repo` does the same from the shell.
