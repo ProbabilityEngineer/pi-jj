@@ -125,9 +125,8 @@ function buildJjStatus(cwd: string): { text: string; dirty: boolean; warning: bo
 	const parkedBookmark = parked?.bookmarks.join(",") ?? "";
 	const branch = backupBranch(cwd, current, parked);
 	const branchHasBookmark = !branch || current.bookmarks.includes(branch) || parked?.bookmarks.includes(branch);
-	const needsNewWarning = dirty && current.description !== "no desc";
 	const bookmarkWarning = !branchHasBookmark;
-	const warningText = needsNewWarning ? "jj new?" : bookmarkWarning ? `bkmrk≠${branch}` : "";
+	const warningText = bookmarkWarning ? `bkmrk≠${branch}` : "";
 
 	const parkedText = parked
 		? `parked:${parked.changeId}${parkedBookmark ? ` ${parkedBookmark}` : ""} \"${parked.description}\"`
@@ -139,7 +138,7 @@ function buildJjStatus(cwd: string): { text: string; dirty: boolean; warning: bo
 	return {
 		text: `${currentText}·${statusText}·${parkedText}${warningText ? `·${warningText}` : ""}`,
 		dirty,
-		warning: needsNewWarning || bookmarkWarning,
+		warning: bookmarkWarning,
 	};
 }
 

@@ -17,7 +17,7 @@ https://github.com/jj-vcs/jj
 - Provides `/jj-bookmark <branch> [rev]` to create or move a JJ bookmark after confirmation. The default rev is `@-`.
 - Provides `/jj-backup [branch]` to require a clean JJ working copy, align the branch bookmark to the parked change, attach Git HEAD to that branch, and run `git push origin <branch>` after confirmation.
 - Works with colocated jj + git repos: use jj locally, and use git push/fetch for remote sync.
-- Warns when a described dirty working-copy change probably needs `jj new`, and when the discovered Git branch/backup branch does not match the current or parked JJ bookmark.
+- Warns when the discovered Git branch/backup branch does not match the current or parked JJ bookmark.
 - Avoids prompt injection and other dynamic context.
 - Keeps the package lightweight and non-invasive.
 
