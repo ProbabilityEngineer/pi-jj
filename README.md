@@ -6,7 +6,7 @@ https://github.com/jj-vcs/jj
 
 ## What it does
 
-- Shows status of your Jujutsu repo above the text box when `jj` is installed, prioritizing the current working-copy change (`@`) and parent/previous parked change (`@-`) after `jj new`.
+- Shows status of your Jujutsu repo above the text box when `jj` is installed, prioritizing the parent/previous parked change (`@-`) for context, followed by the current working-copy change (`@`) and dirty status.
 - Shows an install-needed message when `jj` is missing.
 - Provides `/jj-init` to initialize JJ in the current repo and install/refresh JJ guidance in `AGENTS.md`.
 - Provides `/jj-status` to toggle the status widget on/off.

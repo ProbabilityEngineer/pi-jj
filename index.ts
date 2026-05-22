@@ -186,7 +186,7 @@ function buildJjStatus(
 			: `@ ${current.changeId}`;
 
 	return {
-		text: `${currentText} · ${statusText} · ${parkedText}${warningText ? ` · ${warningText}` : ""}`,
+		text: `${parkedText} · ${currentText} · ${statusText}${warningText ? ` · ${warningText}` : ""}`,
 		dirty,
 		warning: bookmarkWarning || preexistingDirty,
 	};
