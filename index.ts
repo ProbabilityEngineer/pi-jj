@@ -93,6 +93,34 @@ function hasJjRepo(cwd: string): boolean {
 	return runJj(["root"], cwd) !== null;
 }
 
+function alignedRemoteBookmarksByLocal(
+	cwd: string,
+	commitId: string,
+): Map<string, string[]> {
+	const raw = runJj(["bookmark", "list", "--all"], cwd);
+	const byLocal = new Map<string, string[]>();
+	if (!raw) return byLocal;
+
+	let localBookmark: string | null = null;
+	for (const line of raw.split(/\r?\n/)) {
+		const localMatch = line.match(/^(\S+):\s+\S+\s+(\S+)/);
+		if (localMatch) {
+			localBookmark = localMatch[1];
+			continue;
+		}
+
+		const remoteMatch = line.match(/^\s+@([^:]+):\s+\S+\s+(\S+)/);
+		if (!remoteMatch || !localBookmark) continue;
+		const [, remote, remoteCommitId] = remoteMatch;
+		if (remote === "git" || remoteCommitId !== commitId) continue;
+		const names = byLocal.get(localBookmark) ?? [];
+		names.push(`${localBookmark}@${remote}`);
+		byLocal.set(localBookmark, names);
+	}
+
+	return byLocal;
+}
+
 function revInfo(cwd: string, rev: string): RevInfo | null {
 	const changeId = runJj(
 		["log", "-r", rev, "--no-graph", "-T", "change_id.short()"],
@@ -107,8 +135,17 @@ function revInfo(cwd: string, rev: string): RevInfo | null {
 	const description = rawDescription.trim()
 		? truncate(rawDescription.trim().split(/\r?\n/)[0])
 		: "no desc";
-	const bookmarks = parseBookmarkNames(
+	const localBookmarks = parseBookmarkNames(
 		runJj(["log", "-r", rev, "--no-graph", "-T", "bookmarks"], cwd) ?? "",
+	);
+	const alignedRemotes = alignedRemoteBookmarksByLocal(cwd, commitId);
+	const bookmarks = Array.from(
+		new Set(
+			localBookmarks.flatMap((bookmark) => [
+				bookmark,
+				...(alignedRemotes.get(bookmark) ?? []),
+			]),
+		),
 	);
 	return { changeId, commitId, description, bookmarks };
 }
