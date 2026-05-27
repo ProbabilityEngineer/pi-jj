@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -16,7 +17,7 @@ const agentsJjGuidance = `${agentsJjBlockStart}
 - After completing coherent agent-owned work, run \`jj describe -m "message"\` and \`jj new --no-edit\`; \`@\` should be empty and \`@-\` should be the completed change.
 - Before declaring work pushed or clean, verify publish alignment: \`@\` is empty, \`@-\` is the completed change, the target bookmark plus \`<branch>@git\` and \`<branch>@origin\` point to \`@-\`, Git HEAD is attached to the branch, and \`git status --short --branch\` is clean.
 - If \`jj status\` is dirty before you start, treat it as pre-existing user work unless explicitly told to continue it.
-- For off-machine backup, prefer \`/jj-backup [branch]\`; use \`/jj-bookmark <branch> [rev]\` only for intentional bookmark alignment.
+- For off-machine backup or publishing, prefer \`/jj-align-push [branch]\` after \`@\` is empty and \`@-\` is the completed change.
 ${agentsJjBlockEnd}`;
 
 type ChangeCounts = { added: number; modified: number; removed: number };
@@ -339,11 +340,75 @@ async function confirm(
 	return ctx.ui.confirm(title, message);
 }
 
+function publishStatus(cwd: string): { text: string; ok: boolean; branch: string | null } {
+	const current = revInfo(cwd, "@");
+	const parked = revInfo(cwd, "@-");
+	const counts = countJjChanges(cwd);
+	const dirty = isDirty(counts);
+	const branch = backupBranch(cwd, current, parked);
+	const warnings = alignmentWarnings(cwd, branch, parked, dirty);
+	const lines = [
+		"JJ publish alignment",
+		`@ dirty: ${dirty ? formatChangeSummary(counts) : "no"}`,
+		`@: ${current ? `${current.changeId} ${current.commitId} ${current.bookmarks.join(",") || "no bookmark"}` : "unavailable"}`,
+		`@-: ${parked ? `${parked.changeId} ${parked.commitId} ${parked.bookmarks.join(",") || "no bookmark"} ${parked.description}` : "unavailable"}`,
+		`branch: ${branch ?? "none"}`,
+		`git HEAD: ${currentGitBranch(cwd)?.trim() || "detached"}`,
+	];
+	if (warnings.length) lines.push(`warnings: ${warnings.join("; ")}`);
+	else lines.push("warnings: none");
+	const ok = !dirty && Boolean(branch && parked) && warnings.length === 0;
+	lines.push(`aligned: ${ok ? "yes" : "no"}`);
+	return { text: lines.join("\n"), ok, branch };
+}
+
+function alignPush(cwd: string, explicitBranch?: string): string {
+	const current = revInfo(cwd, "@");
+	const parked = revInfo(cwd, "@-");
+	const counts = countJjChanges(cwd);
+	if (isDirty(counts)) throw new Error("Working copy is dirty. Run jj describe and jj new --no-edit first.");
+	const branch = explicitBranch?.trim() || backupBranch(cwd, current, parked);
+	if (!branch) throw new Error("No Git branch or JJ bookmark found. Provide branch.");
+	if (!isValidBranchName(cwd, branch)) throw new Error(`Invalid Git branch name: ${branch}`);
+	if (!parked) throw new Error("No @- target found for alignment.");
+	const exists = runJj(["bookmark", "list", branch], cwd);
+	const bookmarkResult = exists && exists.includes(`${branch}:`)
+		? runJj(["bookmark", "move", branch, "--to", "@-"], cwd)
+		: runJj(["bookmark", "create", branch, "-r", "@-"], cwd);
+	if (!bookmarkResult) throw new Error("jj bookmark update failed");
+	if (runJj(["git", "export"], cwd) === null) throw new Error("jj git export failed");
+	if (!attachGitHead(cwd, branch)) throw new Error(`Attaching Git HEAD to ${branch} failed`);
+	const pushResult = runGit(["push", "origin", branch], cwd);
+	if (pushResult === null) throw new Error(`git push origin ${branch} failed`);
+	if (runJj(["git", "import"], cwd) === null) throw new Error("jj git import failed");
+	return [
+		`Aligned and pushed ${branch}.`,
+		publishStatus(cwd).text,
+	].join("\n\n");
+}
+
+const jjVcsTool = defineTool({
+	name: "jj_vcs",
+	label: "JJ VCS",
+	description: "Jujutsu/GitHub publish alignment: status or align_push.",
+	parameters: Type.Object({
+		action: Type.Union([Type.Literal("status"), Type.Literal("align_push")]),
+		branch: Type.Optional(Type.String({ description: "Branch/bookmark to align and push; defaults to current Git branch or @-/@ bookmark." })),
+	}),
+	async execute(_toolCallId, params, _signal, _updates, ctx) {
+		const p = params as { action: "status" | "align_push"; branch?: string };
+		const text = p.action === "status" ? publishStatus(ctx.cwd).text : alignPush(ctx.cwd, p.branch);
+		return { content: [{ type: "text" as const, text }], details: { action: p.action } };
+	},
+});
+
 export default function repoStatus(pi: ExtensionAPI) {
 	let lastRendered: string | undefined;
 	let sessionStart: { changeId: string; dirty: boolean } | undefined;
 	let pollCtx: StatusContext | undefined;
 	let pollTimer: ReturnType<typeof setInterval> | undefined;
+
+	pi.registerTool(jjVcsTool);
 
 	const refresh = (ctx: StatusContext) => {
 		if (!ctx.hasUI) return;
@@ -418,15 +483,6 @@ export default function repoStatus(pi: ExtensionAPI) {
 		},
 	});
 
-	pi.registerCommand("jj-agents", {
-		description: "Install or refresh the AGENTS.md JJ guidance block",
-		handler: async (_args, ctx) => {
-			const result = ensureAgentsGuidance(ctx.cwd);
-			ctx.ui.notify(result, "info");
-			refresh(ctx);
-		},
-	});
-
 	pi.registerCommand("jj-status", {
 		description: "Toggle the JJ statusline on/off",
 		handler: async (_args, ctx) => {
@@ -436,77 +492,9 @@ export default function repoStatus(pi: ExtensionAPI) {
 		},
 	});
 
-	pi.registerCommand("jj-new", {
-		description: "Create a new JJ change",
-		handler: async (args, ctx) => {
-			const message = joinArgs(args);
-			const result = message
-				? runJj(["new", "--message", message], ctx.cwd)
-				: runJj(["new", "--no-edit"], ctx.cwd);
-			ctx.ui.notify(result ?? "jj new failed", result ? "info" : "warning");
-			refresh(ctx);
-		},
-	});
-
-	pi.registerCommand("jj-describe", {
-		description: "Set the current JJ change description",
-		handler: async (args, ctx) => {
-			const message = joinArgs(args);
-			if (!message) {
-				ctx.ui.notify("Usage: /jj-describe <message>", "warning");
-				return;
-			}
-			const result = runJj(["describe", "--message", message], ctx.cwd);
-			ctx.ui.notify(
-				result ?? "jj describe failed",
-				result ? "info" : "warning",
-			);
-			refresh(ctx);
-		},
-	});
-
-	pi.registerCommand("jj-bookmark", {
+	pi.registerCommand("jj-align-push", {
 		description:
-			"Create or move a JJ bookmark: /jj-bookmark <branch> [rev] (default rev: @-)",
-		handler: async (args, ctx) => {
-			const parsed = parseBookmarkCommand(args);
-			if (!parsed) {
-				ctx.ui.notify("Usage: /jj-bookmark <branch> [rev]", "warning");
-				return;
-			}
-			const target = revInfo(ctx.cwd, parsed.rev);
-			if (!target) {
-				ctx.ui.notify(`Cannot resolve ${parsed.rev}`, "warning");
-				return;
-			}
-			const ok = await confirm(
-				ctx,
-				"Move JJ bookmark?",
-				`Set bookmark ${parsed.branch} to ${parsed.rev} ${target.changeId} "${target.description}"?`,
-			);
-			if (!ok) return;
-			const exists = runJj(["bookmark", "list", parsed.branch], ctx.cwd);
-			const result =
-				exists && exists.includes(`${parsed.branch}:`)
-					? runJj(
-							["bookmark", "move", parsed.branch, "--to", parsed.rev],
-							ctx.cwd,
-						)
-					: runJj(
-							["bookmark", "create", parsed.branch, "-r", parsed.rev],
-							ctx.cwd,
-						);
-			ctx.ui.notify(
-				result ?? "jj bookmark failed",
-				result ? "info" : "warning",
-			);
-			refresh(ctx);
-		},
-	});
-
-	pi.registerCommand("jj-backup", {
-		description:
-			"Confirm, align bookmark to parked change, attach Git HEAD, and git push current branch/bookmark",
+			"Confirm, align bookmark to @-, export/import Git, attach Git HEAD, and push current branch/bookmark",
 		handler: async (args, ctx) => {
 			const explicitBranch = joinArgs(args).split(/\s+/).filter(Boolean)[0];
 			const current = revInfo(ctx.cwd, "@");
@@ -514,7 +502,7 @@ export default function repoStatus(pi: ExtensionAPI) {
 			const counts = countJjChanges(ctx.cwd);
 			if (isDirty(counts)) {
 				ctx.ui.notify(
-					"Working copy is dirty. Run /jj-describe then /jj-new before /jj-backup.",
+					"Working copy is dirty. Run jj describe then jj new --no-edit before /jj-align-push.",
 					"warning",
 				);
 				return;
@@ -522,7 +510,7 @@ export default function repoStatus(pi: ExtensionAPI) {
 			const branch = explicitBranch ?? backupBranch(ctx.cwd, current, parked);
 			if (!branch) {
 				ctx.ui.notify(
-					"No Git branch or JJ bookmark found. Use /jj-bookmark <branch> first, or /jj-backup <branch>.",
+					"No Git branch or JJ bookmark found. Provide /jj-align-push <branch>.",
 					"warning",
 				);
 				return;
@@ -533,49 +521,21 @@ export default function repoStatus(pi: ExtensionAPI) {
 			}
 			const target = parked ?? current;
 			if (!target) {
-				ctx.ui.notify("No JJ target found for backup", "warning");
+				ctx.ui.notify("No JJ target found for alignment", "warning");
 				return;
 			}
 			const ok = await confirm(
 				ctx,
-				"Backup to GitHub?",
-				`Move/create bookmark ${branch} at @- ${target.changeId} "${target.description}", attach Git HEAD to ${branch}, and run git push origin ${branch}?`,
+				"Align and push to GitHub?",
+				`Move/create bookmark ${branch} at @- ${target.changeId} "${target.description}", export/import Git, attach Git HEAD to ${branch}, and run git push origin ${branch}?`,
 			);
 			if (!ok) return;
-			const exists = runJj(["bookmark", "list", branch], ctx.cwd);
-			const bookmarkResult =
-				exists && exists.includes(`${branch}:`)
-					? runJj(["bookmark", "move", branch, "--to", "@-"], ctx.cwd)
-					: runJj(["bookmark", "create", branch, "-r", "@-"], ctx.cwd);
-			if (!bookmarkResult) {
-				ctx.ui.notify("jj bookmark update failed", "warning");
-				return;
+			try {
+				ctx.ui.notify(alignPush(ctx.cwd, branch), "info");
+			} catch (error) {
+				ctx.ui.notify(error instanceof Error ? error.message : String(error), "warning");
 			}
-			if (!attachGitHead(ctx.cwd, branch)) {
-				ctx.ui.notify(
-					`Bookmark updated, but attaching Git HEAD to ${branch} failed. Push skipped.`,
-					"warning",
-				);
-				refresh(ctx);
-				return;
-			}
-			const pushResult = runGit(["push", "origin", branch], ctx.cwd);
-			ctx.ui.notify(
-				pushResult || `attached HEAD and pushed origin ${branch}`,
-				pushResult !== null ? "info" : "warning",
-			);
 			refresh(ctx);
-		},
-	});
-
-	pi.registerCommand("jj-diff", {
-		description: "Show a JJ diff summary",
-		handler: async (_args, ctx) => {
-			const result = runJj(["diff", "--git", "--stat"], ctx.cwd);
-			ctx.ui.notify(
-				summarizeOutput(result) || "jj diff failed",
-				result ? "info" : "warning",
-			);
 		},
 	});
 

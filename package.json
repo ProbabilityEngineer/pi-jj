@@ -6,7 +6,8 @@
   "type": "module",
   "keywords": ["pi-package", "pi-extension", "jujutsu", "jj"],
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.75.3"
+    "@earendil-works/pi-coding-agent": "^0.75.3",
+    "typebox": "latest"
   },
   "pi": {
     "extensions": ["index.ts"]
