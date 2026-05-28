@@ -9,7 +9,7 @@
   "homepage": "https://github.com/ProbabilityEngineer/pi-jj-git-align#readme",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/ProbabilityEngineer/pi-jj-git-align.git"
+    "url": "git+https://github.com/ProbabilityEngineer/pi-jj-git-align.git"
   },
   "bugs": {
     "url": "https://github.com/ProbabilityEngineer/pi-jj-git-align/issues"
@@ -33,7 +33,9 @@
     "typebox": "latest"
   },
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   },
   "files": [
     "index.ts",
