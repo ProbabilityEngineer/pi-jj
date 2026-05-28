@@ -2,7 +2,7 @@
 
 Guarded jj+Git publish alignment for git-colocated Jujutsu repos in Pi.
 
-Jujutsu/jj status and guarded GitHub publishing for colocated jj+Git repos in Pi. Shows repo state, warns about jj/Git misalignment, and provides `/jj-align-push` plus a model-visible `jj_vcs` tool to align the target branch/bookmark, Git HEAD, and origin with `@-` (the completed change) before declaring work pushed. Defaults to the current Git branch, then a bookmark on `@` or `@-`.
+Jujutsu/jj status and guarded GitHub publishing for colocated jj+Git repos in Pi. Shows repo state, warns about jj/Git misalignment, and provides `/jj-align-push` plus a model-visible `jj_vcs` tool to align the target branch/bookmark, Git HEAD, and origin with `@-` (the completed change) before declaring work pushed. Defaults to the current Git branch, then a bookmark on `@` or `@-`. Keeps prompt overhead low: it registers a compact tool and commands, but does not inject dynamic VCS status into model context.
 
 Links: [Pi](https://github.com/earendil-works/pi) · [Jujutsu](https://github.com/jj-vcs/jj)
 
@@ -17,7 +17,7 @@ Links: [Pi](https://github.com/earendil-works/pi) · [Jujutsu](https://github.co
 - Works with colocated jj + git repos: use jj locally, and use git push/fetch for remote sync.
 - Warns when the resolved target branch does not match the current or parked JJ bookmark, when dirty work was already present at session start, or when a clean-looking colocated repo is not publish-aligned (`main`, `main@git`, `main@origin`, Git HEAD, and `@-`).
 - Polls active JJ repos every 5 seconds while the Pi UI is running, so changes made in another terminal are reflected automatically.
-- Avoids prompt injection and other dynamic context.
+- Avoids prompt injection and other dynamic context; status UI is human-visible, and agents can request model-visible status explicitly with `jj_vcs`.
 - Keeps the package lightweight and non-invasive.
 
 ## Install
