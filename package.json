@@ -1,6 +1,6 @@
 {
   "name": "pi-jj-git-align",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "description": "Guarded jj+Git publish alignment for git-colocated Jujutsu repos in Pi.",
   "type": "module",
