@@ -1,8 +1,10 @@
-# pi-jj-vcs
+# pi-jj-git-align
 
-Pi extension for agent-friendly Jujutsu (jj) version control system setup and status.
-https://github.com/earendil-works/pi
-https://github.com/jj-vcs/jj
+Guarded jj+Git publish alignment for git-colocated Jujutsu repos in Pi.
+
+Jujutsu/jj status and guarded GitHub publishing for colocated jj+Git repos in Pi. Shows repo state, warns about jj/Git misalignment, and provides `/jj-align-push` plus a model-visible `jj_vcs` tool to align the target branch/bookmark, Git HEAD, and origin with `@-` (the completed change) before declaring work pushed. Defaults to the current Git branch, then a bookmark on `@` or `@-`.
+
+Links: [Pi](https://github.com/earendil-works/pi) · [Jujutsu](https://github.com/jj-vcs/jj)
 
 ## What it does
 
@@ -13,15 +15,29 @@ https://github.com/jj-vcs/jj
 - Provides `/jj-align-push [branch]` to require a clean JJ working copy, align the branch bookmark to the parked change, export/import Git, attach Git HEAD to that branch, and run `git push origin <branch>` after confirmation.
 - Provides the agent-callable `jj_vcs` tool with `status` and `align_push` actions for model-visible alignment checks.
 - Works with colocated jj + git repos: use jj locally, and use git push/fetch for remote sync.
-- Warns when the discovered Git branch/backup branch does not match the current or parked JJ bookmark, when dirty work was already present at session start, or when a clean-looking colocated repo is not publish-aligned (`main`, `main@git`, `main@origin`, Git HEAD, and `@-`).
+- Warns when the resolved target branch does not match the current or parked JJ bookmark, when dirty work was already present at session start, or when a clean-looking colocated repo is not publish-aligned (`main`, `main@git`, `main@origin`, Git HEAD, and `@-`).
 - Polls active JJ repos every 5 seconds while the Pi UI is running, so changes made in another terminal are reflected automatically.
 - Avoids prompt injection and other dynamic context.
 - Keeps the package lightweight and non-invasive.
 
 ## Install
 
+From npm:
+
 ```bash
-pi install -l github.com/ProbabilityEngineer/pi-jj-vcs
+pi install npm:pi-jj-git-align
+```
+
+From GitHub:
+
+```bash
+pi install git:github.com/ProbabilityEngineer/pi-jj-git-align
+```
+
+For project-local install, add `-l`:
+
+```bash
+pi install -l git:github.com/ProbabilityEngineer/pi-jj-git-align
 ```
 
 ## Use
@@ -29,7 +45,7 @@ pi install -l github.com/ProbabilityEngineer/pi-jj-vcs
 - In Pi, run `/jj-init` in a repo to set up JJ.
 - Run `/jj-status` to hide/show the JJ status widget.
 - After finishing work, use shell `jj describe -m "message"` and `jj new --no-edit` so `@` is an empty working-copy change and `@-` is the completed change.
-- Run `/jj-align-push main` to confirm bookmark alignment to `@-`, export/import Git, attach Git HEAD to `main`, and push `main` for off-machine backup.
+- Run `/jj-align-push main` to confirm bookmark alignment to `@-`, export/import Git, attach Git HEAD to `main`, and push `main` for off-machine backup. If no branch is provided, it defaults to the current Git branch, then a bookmark on `@` or `@-`.
 - Desired final shape after backup: `@` is clean/empty, `@-` is the completed change, `main`, `main@git`, and `main@origin` point to `@-`, Git HEAD is attached to `main`, and `git status --short --branch` is clean.
 
 ## Workflow

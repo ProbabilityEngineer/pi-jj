@@ -8,8 +8,8 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const ensureJjScript = join(here, "scripts", "ensure-jj.sh");
 const disableMarker = ".pi-jujutsu-status-off";
-const agentsJjBlockStart = "<!-- pi-jj-vcs:jjtips:start -->";
-const agentsJjBlockEnd = "<!-- pi-jj-vcs:jjtips:end -->";
+const agentsJjBlockStart = "<!-- pi-jj-git-align:jjtips:start -->";
+const agentsJjBlockEnd = "<!-- pi-jj-git-align:jjtips:end -->";
 const agentsJjGuidance = `${agentsJjBlockStart}
 ## Jujutsu Version Control
 - Use JJ for local work: \`jj status\`, \`jj diff\`, \`jj log\`, \`jj describe -m "message"\`, \`jj new --no-edit\`, \`jj op log\`, and \`jj undo\`.
@@ -171,7 +171,7 @@ function firstBookmark(info: RevInfo | null): string | undefined {
 	return info?.bookmarks[0];
 }
 
-function backupBranch(
+function resolveTargetBranch(
 	cwd: string,
 	current: RevInfo | null,
 	parked: RevInfo | null,
@@ -226,7 +226,7 @@ function buildJjStatus(
 	const statusText = formatChangeSummary(counts);
 	const currentBookmark = current.bookmarks.join(",");
 	const parkedBookmark = parked?.bookmarks.join(",") ?? "";
-	const branch = backupBranch(cwd, current, parked);
+	const branch = resolveTargetBranch(cwd, current, parked);
 	const branchHasBookmark =
 		!branch ||
 		current.bookmarks.includes(branch) ||
@@ -345,7 +345,7 @@ function publishStatus(cwd: string): { text: string; ok: boolean; branch: string
 	const parked = revInfo(cwd, "@-");
 	const counts = countJjChanges(cwd);
 	const dirty = isDirty(counts);
-	const branch = backupBranch(cwd, current, parked);
+	const branch = resolveTargetBranch(cwd, current, parked);
 	const warnings = alignmentWarnings(cwd, branch, parked, dirty);
 	const lines = [
 		"JJ publish alignment",
@@ -367,7 +367,7 @@ function alignPush(cwd: string, explicitBranch?: string): string {
 	const parked = revInfo(cwd, "@-");
 	const counts = countJjChanges(cwd);
 	if (isDirty(counts)) throw new Error("Working copy is dirty. Run jj describe and jj new --no-edit first.");
-	const branch = explicitBranch?.trim() || backupBranch(cwd, current, parked);
+	const branch = explicitBranch?.trim() || resolveTargetBranch(cwd, current, parked);
 	if (!branch) throw new Error("No Git branch or JJ bookmark found. Provide branch.");
 	if (!isValidBranchName(cwd, branch)) throw new Error(`Invalid Git branch name: ${branch}`);
 	if (!parked) throw new Error("No @- target found for alignment.");
@@ -393,7 +393,7 @@ const jjVcsTool = defineTool({
 	description: "Jujutsu/GitHub publish alignment: status or align_push.",
 	parameters: Type.Object({
 		action: Type.Union([Type.Literal("status"), Type.Literal("align_push")]),
-		branch: Type.Optional(Type.String({ description: "Branch/bookmark to align and push; defaults to current Git branch or @-/@ bookmark." })),
+		branch: Type.Optional(Type.String({ description: "Branch/bookmark to align and push; defaults to the current Git branch, then a bookmark on @ or @-." })),
 	}),
 	async execute(_toolCallId, params, _signal, _updates, ctx) {
 		const p = params as { action: "status" | "align_push"; branch?: string };
@@ -494,7 +494,7 @@ export default function repoStatus(pi: ExtensionAPI) {
 
 	pi.registerCommand("jj-align-push", {
 		description:
-			"Confirm, align bookmark to @-, export/import Git, attach Git HEAD, and push current branch/bookmark",
+			"Confirm, align bookmark to @-, export/import Git, attach Git HEAD, and push the current Git branch or resolved bookmark",
 		handler: async (args, ctx) => {
 			const explicitBranch = joinArgs(args).split(/\s+/).filter(Boolean)[0];
 			const current = revInfo(ctx.cwd, "@");
@@ -507,7 +507,7 @@ export default function repoStatus(pi: ExtensionAPI) {
 				);
 				return;
 			}
-			const branch = explicitBranch ?? backupBranch(ctx.cwd, current, parked);
+			const branch = explicitBranch ?? resolveTargetBranch(ctx.cwd, current, parked);
 			if (!branch) {
 				ctx.ui.notify(
 					"No Git branch or JJ bookmark found. Provide /jj-align-push <branch>.",

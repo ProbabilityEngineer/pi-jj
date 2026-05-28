@@ -1,15 +1,43 @@
 {
-  "name": "pi-jj-vcs",
+  "name": "pi-jj-git-align",
   "version": "0.1.0",
   "private": false,
-  "description": "Pi extension that shows JJ status when jj is installed, and prompts to install it when it is not.",
+  "description": "Guarded jj+Git publish alignment for git-colocated Jujutsu repos in Pi.",
   "type": "module",
-  "keywords": ["pi-package", "pi-extension", "jujutsu", "jj"],
-  "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.75.3",
+  "license": "MIT",
+  "author": "ProbabilityEngineer",
+  "homepage": "https://github.com/ProbabilityEngineer/pi-jj-git-align#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/ProbabilityEngineer/pi-jj-git-align.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ProbabilityEngineer/pi-jj-git-align/issues"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "jujutsu",
+    "jj",
+    "vcs",
+    "git",
+    "github"
+  ],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.76.0",
     "typebox": "latest"
   },
   "pi": {
-    "extensions": ["index.ts"]
-  }
+    "extensions": ["./index.ts"]
+  },
+  "files": [
+    "index.ts",
+    "README.md",
+    "LICENSE"
+  ]
 }
